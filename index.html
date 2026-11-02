@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Intruder Tracker">
+  <meta name="theme-color" content="#1a1a2e">
+  <link rel="manifest" href="manifest.json">
+  <title>Intruder Tracker</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f0f0; color: #1a1a1a; min-height: 100vh; }
+    header { background: #1a1a2e; color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
+    header h1 { font-size: 18px; font-weight: 600; }
+    #user-badge { font-size: 13px; opacity: 0.85; cursor: pointer; text-decoration: underline; white-space: nowrap; }
+    main { padding: 12px 16px; max-width: 480px; margin: 0 auto; }
+    .field { margin-bottom: 10px; }
+    label { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #555; margin-bottom: 4px; }
+    #date-picker-native { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+    #date-calendar-btn { padding: 8px 14px; background: #1a1a2e; color: white; border: none; border-radius: 8px; font-size: 20px; cursor: pointer; flex-shrink: 0; line-height: 1; }
+    #date-calendar-btn:active { opacity: 0.75; }
+    .date-row { display: flex; gap: 8px; align-items: stretch; }
+    #date-text { flex: 1; padding: 8px 14px; font-size: 16px; border: 1px solid #ddd; border-radius: 8px; background: white; outline: none; letter-spacing: 0.5px; }
+    #date-text:focus { border-color: #1a1a2e; }
+    #date-text.error { border-color: #c0392b; }
+    .date-hint { font-size: 11px; color: #888; margin-top: 2px; }
+    input[type="time"], input[type="number"] { width: 100%; padding: 8px 14px; font-size: 16px; border: 1px solid #ddd; border-radius: 8px; background: white; outline: none; -webkit-appearance: none; appearance: none; }
+    input[type="time"]:focus, input[type="number"]:focus { border-color: #1a1a2e; }
+    .btn { width: 100%; padding: 11px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; margin-bottom: 8px; }
+    .btn-primary { background: #1a1a2e; color: white; }
+    .btn-secondary { background: white; color: #1a1a2e; border: 1px solid #1a1a2e; }
+    .btn:active { opacity: 0.75; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    #status-msg { text-align: center; padding: 8px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 10px; font-weight: 500; }
+    .status-ok { background: #d4edda; color: #155724; }
+    .status-err { background: #f8d7da; color: #721c24; }
+    #setup-screen { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; padding: 40px 24px; text-align: center; }
+    #setup-screen h2 { font-size: 22px; margin-bottom: 8px; }
+    #setup-screen p { color: #666; margin-bottom: 32px; line-height: 1.5; }
+    #setup-name-input { width: 100%; max-width: 320px; padding: 14px; font-size: 18px; border: 2px solid #ddd; border-radius: 8px; text-align: center; margin-bottom: 16px; outline: none; }
+    #setup-name-input:focus { border-color: #1a1a2e; }
+    #setup-confirm-btn { max-width: 320px; }
+    textarea#field-notes { width: 100%; padding: 8px 14px; font-size: 16px; border: 1px solid #ddd; border-radius: 8px; background: white; outline: none; resize: vertical; min-height: 160px; font-family: inherit; }
+    textarea#field-notes:focus { border-color: #1a1a2e; }
+    .edit-note { font-size: 12px; color: #777; margin: -2px 0 10px; line-height: 1.4; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div id="setup-screen" class="hidden">
+  <h2>Intruder Tracker</h2>
+  <p>Enter your name to get started.<br>It will be saved on this device.</p>
+  <input id="setup-name-input" type="text" placeholder="Your name" autocomplete="name">
+  <button id="setup-confirm-btn" class="btn btn-primary" onclick="confirmName()">Get Started</button>
+</div>
+
+<div id="app-screen" class="hidden">
+  <header>
+    <h1>Intruder Tracker</h1>
+    <span id="user-badge" onclick="changeName()"></span>
+  </header>
+  <main>
+    <div id="status-msg" class="hidden"></div>
+    <div class="field">
+      <label>Date</label>
+      <input type="date" id="date-picker-native" tabindex="-1">
+      <div class="date-row">
+        <button id="date-calendar-btn" onclick="openCalendar()" title="Open calendar">&#128197;</button>
+        <input type="text" id="date-text" placeholder="MM/DD/YYYY" maxlength="10" inputmode="numeric">
+      </div>
+      <div class="date-hint">Type MM/DD/YYYY or tap the calendar icon to pick a date</div>
+    </div>
+    <div class="field">
+      <label>Time</label>
+      <input type="time" id="field-time" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Notes</label>
+      <textarea id="field-notes" placeholder="Location and/or any other details you notice no matter how small."></textarea>
+    </div>
+    <p class="edit-note">Need to correct a mistake or add to an earlier entry? Submit a new entry and explain the change in the notes.</p>
+    <button class="btn btn-primary" id="submit-btn" onclick="handleSubmit()">Submit Entry</button>
+    <button class="btn btn-secondary" onclick="openSheet()">Open Sheet in Browser</button>
+  </main>
+</div>
+
+<script>
+const SCRIPT_URL   = 'https://script.google.com/macros/s/AKfycby63Kg6Zh0zUqC0esD4fnMkq6g1HWUxRqsjmintF4tHSi2opp5gLILpggpP3Ac8ai8x/exec';
+const SECRET_TOKEN = '679a73e4d4d6c86c6195fa3f';
+const SHEET_URL    = 'https://docs.google.com/spreadsheets/d/1HkyCP9156OaGIqOlUCfR5eZLtPd3BeAy6Sb8imt2uSM/edit?gid=0#gid=0';
+
+window.addEventListener('load', () => {
+  const name = localStorage.getItem('intruderTrackerName');
+  if (name) { showApp(name); } else { document.getElementById('setup-screen').classList.remove('hidden'); }
+  setDateToToday();
+  setTimeToNow();
+  wireUpDateText();
+  wireUpNativePicker();
+});
+
+let timeEdited = false;
+document.getElementById('field-time').addEventListener('input', () => { timeEdited = true; });
+
+function refreshNow() {
+  if (document.visibilityState !== 'visible' || timeEdited) return;
+  setDateToToday();
+  setTimeToNow();
+}
+document.addEventListener('visibilitychange', refreshNow);
+window.addEventListener('pageshow', refreshNow);
+window.addEventListener('focus', refreshNow);
+setInterval(refreshNow, 1000);
+
+function showApp(name) {
+  document.getElementById('setup-screen').classList.add('hidden');
+  document.getElementById('app-screen').classList.remove('hidden');
+  document.getElementById('user-badge').textContent = name;
+}
+
+function confirmName() {
+  const val = document.getElementById('setup-name-input').value.trim();
+  if (!val) return;
+  localStorage.setItem('intruderTrackerName', val);
+  showApp(val);
+}
+
+function changeName() {
+  const current = localStorage.getItem('intruderTrackerName') || '';
+  const newName = prompt('Change your name:', current);
+  if (newName && newName.trim()) {
+    const trimmed = newName.trim();
+    localStorage.setItem('intruderTrackerName', trimmed);
+    document.getElementById('user-badge').textContent = trimmed;
+  }
+}
+
+function setDateToToday() {
+  const today = new Date();
+  document.getElementById('date-text').value = toDisplayDate(today);
+  document.getElementById('date-picker-native').value = toISODate(today);
+}
+
+function openCalendar() {
+  const picker = document.getElementById('date-picker-native');
+  picker.style.pointerEvents = 'auto';
+  if (picker.showPicker) { picker.showPicker(); } else { picker.click(); }
+  picker.style.pointerEvents = 'none';
+}
+
+function wireUpNativePicker() {
+  document.getElementById('date-picker-native').addEventListener('change', function () {
+    if (!this.value) return;
+    const [y, m, d] = this.value.split('-');
+    document.getElementById('date-text').value = m + '/' + d + '/' + y;
+    document.getElementById('date-text').classList.remove('error');
+  });
+}
+
+function wireUpDateText() {
+  document.getElementById('date-text').addEventListener('input', function () {
+    let v = this.value.replace(/\D/g, '');
+    if (v.length > 2) v = v.slice(0,2) + '/' + v.slice(2);
+    if (v.length > 5) v = v.slice(0,5) + '/' + v.slice(5,9);
+    this.value = v;
+    this.classList.remove('error');
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(v)) {
+      const iso = displayToISO(v);
+      if (iso) document.getElementById('date-picker-native').value = iso;
+    }
+  });
+}
+
+function getDateValue() {
+  const v = document.getElementById('date-text').value.trim();
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(v)) return displayToISO(v);
+  return null;
+}
+
+function displayToISO(mmddyyyy) {
+  const [m, d, y] = mmddyyyy.split('/');
+  const date = new Date(y, m - 1, d);
+  if (isNaN(date.getTime())) return null;
+  return toISODate(date);
+}
+
+function toISODate(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function toDisplayDate(d) {
+  return String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0') + '/' + d.getFullYear();
+}
+
+function openSheet() { window.open(SHEET_URL, '_blank'); }
+
+function setTimeToNow() {
+  const now = new Date();
+  document.getElementById('field-time').value = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+}
+
+async function handleSubmit() {
+  const data = getFormData();
+  if (!data) return;
+  clearStatus();
+  setLoading(true);
+  try { await doSubmit(data); }
+  catch (err) { setStatus('Error: ' + err.message, false); }
+  finally { setLoading(false); }
+}
+
+async function doSubmit(data) {
+  const name = localStorage.getItem('intruderTrackerName') || 'Unknown';
+  const result = await apiPost({ action: 'submit', name, ...data });
+  if (!result.success) throw new Error(result.error || 'Submit failed');
+  setStatus('Entry saved.', true);
+  document.getElementById('field-notes').value = '';
+  timeEdited = false;
+}
+
+function getFormData() {
+  const date     = getDateValue();
+  const time     = document.getElementById('field-time').value;
+  if (!date) { document.getElementById('date-text').classList.add('error'); alert('Please enter a valid date in MM/DD/YYYY format.'); return null; }
+  if (!time) { alert('Please enter a time.'); return null; }
+  const notes = document.getElementById('field-notes').value.trim();
+  return { date, time, notes };
+}
+
+function setStatus(msg, ok) {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = ok ? 'status-msg status-ok' : 'status-msg status-err';
+  el.classList.remove('hidden');
+}
+
+function clearStatus() { document.getElementById('status-msg').classList.add('hidden'); }
+
+function setLoading(on) {
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = on;
+  btn.textContent = on ? 'Saving...' : 'Submit Entry';
+}
+
+async function apiPost(payload) {
+  payload.token = SECRET_TOKEN;
+  const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+  return JSON.parse(await res.text());
+}
+
+document.getElementById('setup-name-input').addEventListener('keydown', function(e) { if (e.key === 'Enter') confirmName(); });
+</script>
+</body>
+</html>
